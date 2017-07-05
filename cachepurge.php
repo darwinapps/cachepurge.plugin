@@ -404,7 +404,7 @@ namespace CachePurge {
                 Plugin::SETTINGS_SECTION
             );
 
-            register_setting('cachepurge', Plugin::MAX_AGE_OPTION, 'intval');
+            register_setting(Plugin::SETTINGS_PAGE, Plugin::MAX_AGE_OPTION, 'intval');
         }
 
 
@@ -475,9 +475,9 @@ namespace CachePurge {
             );
 
 
-            register_setting('cachepurge', CloudFrontPlugin::ACCESS_KEY_OPTION, 'wp_filter_nohtml_kses');
-            register_setting('cachepurge', CloudFrontPlugin::SECRET_KEY_OPTION, 'wp_filter_nohtml_kses');
-            register_setting('cachepurge', CloudFrontPlugin::DISTRIBUTION_ID_OPTION, 'wp_filter_nohtml_kses');
+            register_setting(Plugin::SETTINGS_PAGE, CloudFrontPlugin::ACCESS_KEY_OPTION, 'wp_filter_nohtml_kses');
+            register_setting(Plugin::SETTINGS_PAGE, CloudFrontPlugin::SECRET_KEY_OPTION, 'wp_filter_nohtml_kses');
+            register_setting(Plugin::SETTINGS_PAGE, CloudFrontPlugin::DISTRIBUTION_ID_OPTION, 'wp_filter_nohtml_kses');
         }
     }
 
@@ -536,9 +536,9 @@ namespace CachePurge {
                 Plugin::SETTINGS_SECTION
             );
 
-            register_setting('cachepurge', NginxPlugin::URL_OPTION, 'wp_filter_nohtml_kses');
-            register_setting('cachepurge', NginxPlugin::USERNAME_OPTION, 'wp_filter_nohtml_kses');
-            register_setting('cachepurge', NginxPlugin::PASSWORD_OPTION, 'wp_filter_nohtml_kses');
+            register_setting(Plugin::SETTINGS_PAGE, NginxPlugin::URL_OPTION, 'wp_filter_nohtml_kses');
+            register_setting(Plugin::SETTINGS_PAGE, NginxPlugin::USERNAME_OPTION, 'wp_filter_nohtml_kses');
+            register_setting(Plugin::SETTINGS_PAGE, NginxPlugin::PASSWORD_OPTION, 'wp_filter_nohtml_kses');
         }
     }
 }
