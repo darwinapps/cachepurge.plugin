@@ -209,7 +209,7 @@ namespace CachePurge {
 
         public function purgeRelevant($postId)
         {
-            $validPostStatus = array('publish', 'trash');
+            $validPostStatus = ['publish', 'trash'];
             $thisPostStatus = get_post_status($postId);
 
             if (get_permalink($postId) != true || !in_array($thisPostStatus, $validPostStatus)) {
@@ -233,7 +233,7 @@ namespace CachePurge {
 
         public function getPostRelatedLinks($postId)
         {
-            $listofurls = array();
+            $listofurls = [];
             $post_type = get_post_type($postId);
 
             //Purge taxonomies terms URLs
@@ -305,23 +305,23 @@ namespace CachePurge {
         public function init()
         {
             // set Cache-Control headers
-            add_action('template_redirect', array($this, 'cache_control_send_headers'));
+            add_action('template_redirect', [$this, 'cache_control_send_headers']);
 
             // add admin bar button 'Clear Cloudfront Cache'
-            add_action('admin_bar_menu', array($this, 'admin_bar_item'), 100);
-            add_action('admin_notices', array($this, 'cleared_cache_notice'));
+            add_action('admin_bar_menu', [$this, 'admin_bar_item'], 100);
+            add_action('admin_notices', [$this, 'cleared_cache_notice']);
 
-            add_action('admin_menu', array($this, 'menu_item'));
-            add_action('admin_init', array($this, 'setup_settings'));
+            add_action('admin_menu', [$this, 'menu_item']); // fires first, before admin_init
+            add_action('admin_init', [$this, 'setup_settings']);
 
             // ajax action to clear cache
-            add_action('wp_ajax_cachepurge_clear_cache_full', array($this, 'action_clear_cache_full'));
+            add_action('wp_ajax_cachepurge_clear_cache_full', [$this, 'action_clear_cache_full']);
 
             // Load Automatic Cache Purge
-            add_action('switch_theme', array($this, 'purgeEverything'));
-            add_action('customize_save_after', array($this, 'purgeEverything'));
+            add_action('switch_theme', [$this, 'purgeEverything']);
+            add_action('customize_save_after', [$this, 'purgeEverything']);
             foreach ($this->purgeActions as $action) {
-                add_action($action, array($this, 'purgeRelevant'), 10, 2);
+                add_action($action, [$this, 'purgeRelevant'], 10, 2);
             }
         }
 
@@ -337,13 +337,13 @@ namespace CachePurge {
                 return;
             }
 
-            $wp_admin_bar->add_node(array(
+            $wp_admin_bar->add_node([
                 'id' => 'cachepurge',
-                'title' => 'Clear CloudFront Cache',
+                'title' => 'Clear Cache',
                 'href' => wp_nonce_url(admin_url('admin-ajax.php?action=cachepurge_clear_cache_full&source=adminbar'), 'cachepurge-clear-cache-full', 'cachepurge_nonce'),
                 'meta' => ['title' => 'Clear CloudFront Cache'],
                 'parent' => 'top-secondary'
-            ));
+            ]);
         }
 
         public function menu_item()
@@ -353,10 +353,7 @@ namespace CachePurge {
                 'CachePurge Settings',
                 'manage_options',
                 Plugin::SETTINGS_PAGE,
-                array(
-                    $this,
-                    'settings_page'
-                )
+                [$this, 'settings_page']
             );
         }
 
@@ -387,7 +384,7 @@ namespace CachePurge {
         public function setup_settings()
         {
             add_settings_section(
-                'cachepurge-settings',
+                Plugin::SETTINGS_SECTION,
                 'Settings',
                 null,
                 Plugin::SETTINGS_PAGE
