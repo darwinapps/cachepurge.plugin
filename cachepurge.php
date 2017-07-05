@@ -188,6 +188,8 @@ namespace CachePurge {
     abstract class Plugin
     {
         const MAX_AGE_OPTION = 'cachepurge-max-age';
+        const SETTINGS_PAGE = 'cachepurge-settings-page';
+        const SETTINGS_SECTION = 'cachepurge-settings';
 
         protected $purgeActions = [
             'deleted_post',
@@ -344,6 +346,20 @@ namespace CachePurge {
             ));
         }
 
+        public function menu_item()
+        {
+            add_options_page(
+                'CachePurge Settings',
+                'CachePurge Settings',
+                'manage_options',
+                Plugin::SETTINGS_PAGE,
+                array(
+                    $this,
+                    'settings_page'
+                )
+            );
+        }
+
         public function action_clear_cache_full()
         {
             check_ajax_referer('cachepurge-clear-cache-full', 'cachepurge_nonce');
@@ -374,7 +390,7 @@ namespace CachePurge {
                 'cachepurge-settings',
                 'Settings',
                 null,
-                'cachepurge-settings-page'
+                Plugin::SETTINGS_PAGE
             );
 
             add_settings_field(
@@ -387,8 +403,8 @@ namespace CachePurge {
                     echo '<input name="' . Plugin::MAX_AGE_OPTION . '" value="' . (int)$max_age . '">';
                     echo '<p>Set this option to zero to disable sending Cache-Control header</p>';
                 },
-                'cachepurge-settings-page',
-                'cachepurge-settings'
+                Plugin::SETTINGS_PAGE,
+                Plugin::SETTINGS_SECTION
             );
 
             register_setting('cachepurge', Plugin::MAX_AGE_OPTION, 'intval');
@@ -398,8 +414,8 @@ namespace CachePurge {
         public function settings_page()
         {
             echo '<form action="options.php" method="POST">';
-            settings_fields('cachepurge-settings-page');
-            do_settings_sections('cachepurge-settings-page');
+            settings_fields(Plugin::SETTINGS_PAGE);
+            do_settings_sections(Plugin::SETTINGS_PAGE);
             submit_button();
             echo '</form>';
         }
@@ -437,8 +453,8 @@ namespace CachePurge {
                 function () {
                     echo '<input name="' . CloudFrontPlugin::ACCESS_KEY_OPTION . '" value="' . get_option(CloudFrontPlugin::ACCESS_KEY_OPTION) . '">';
                 },
-                'cachepurge-settings-page',
-                'cachepurge-settings'
+                Plugin::SETTINGS_PAGE,
+                Plugin::SETTINGS_SECTION
             );
 
             add_settings_field(
@@ -447,8 +463,8 @@ namespace CachePurge {
                 function () {
                     echo '<input name="' . CloudFrontPlugin::SECRET_KEY_OPTION . '" value="' . get_option(CloudFrontPlugin::SECRET_KEY_OPTION) . '">';
                 },
-                'cachepurge-settings-page',
-                'cachepurge-settings'
+                Plugin::SETTINGS_PAGE,
+                Plugin::SETTINGS_SECTION
             );
 
             add_settings_field(
@@ -457,8 +473,8 @@ namespace CachePurge {
                 function () {
                     echo '<input name="' . CloudFrontPlugin::DISTRIBUTION_ID_OPTION . '" value="' . get_option(CloudFrontPlugin::DISTRIBUTION_ID_OPTION) . '">';
                 },
-                'cachepurge-settings-page',
-                'cachepurge-settings'
+                Plugin::SETTINGS_PAGE,
+                Plugin::SETTINGS_SECTION
             );
 
 
@@ -499,8 +515,8 @@ namespace CachePurge {
                 function () {
                     echo '<input name="' . NginxPlugin::URL_OPTION . '" value="' . get_option(NginxPlugin::URL_OPTION) . '">';
                 },
-                'cachepurge-settings-page',
-                'cachepurge-settings'
+                Plugin::SETTINGS_PAGE,
+                Plugin::SETTINGS_SECTION
             );
 
             add_settings_field(
@@ -509,8 +525,8 @@ namespace CachePurge {
                 function () {
                     echo '<input name="' . NginxPlugin::USERNAME_OPTION . '" value="' . get_option(NginxPlugin::USERNAME_OPTION) . '">';
                 },
-                'cachepurge-settings-page',
-                'cachepurge-settings'
+                Plugin::SETTINGS_PAGE,
+                Plugin::SETTINGS_SECTION
             );
 
             add_settings_field(
@@ -519,8 +535,8 @@ namespace CachePurge {
                 function () {
                     echo '<input name="' . NginxPlugin::PASSWORD_OPTION . '" value="' . get_option(NginxPlugin::PASSWORD_OPTION) . '">';
                 },
-                'cachepurge-settings-page',
-                'cachepurge-settings'
+                Plugin::SETTINGS_PAGE,
+                Plugin::SETTINGS_SECTION
             );
 
             register_setting('cachepurge', NginxPlugin::URL_OPTION, 'wp_filter_nohtml_kses');
