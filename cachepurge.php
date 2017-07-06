@@ -396,7 +396,7 @@ namespace CachePurge {
                 function () {
                     $max_age = get_option(Plugin::MAX_AGE_OPTION);
                     if (!$max_age)
-                        $max_age = 315360000;
+                        $max_age = 31536000;
                     echo '<input name="' . Plugin::MAX_AGE_OPTION . '" value="' . (int)$max_age . '">';
                     echo '<p>Set this option to zero to disable sending Cache-Control header</p>';
                 },
