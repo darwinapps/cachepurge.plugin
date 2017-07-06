@@ -72,7 +72,7 @@ namespace CachePurge {
                 }
                 fclose($fp);
                 if (!preg_match('#^HTTP/1.1 20[01]#', $resp)) {
-                    error_log($xml);
+                    error_log($msg);
                     error_log($resp);
                     return false;
                 }
