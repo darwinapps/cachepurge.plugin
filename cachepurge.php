@@ -103,14 +103,17 @@ namespace CachePurge {
 
             $xml = "<InvalidationBatch>{$paths}<CallerReference>{$this->distribution_id}{$epoch}</CallerReference></InvalidationBatch>";
 
-            if (false !== ($resp = $this->callApi('POST', "/2010-11-01/distribution/{$this->distribution_id}/invalidation", $xml))) {
-                if (!preg_match('#<Id>(.*?)</Id>#m', $resp, $matches)) {
-                    error_log($xml);
-                    error_log($resp);
-                    return false;
-                }
+            if (false === ($resp = $this->callApi('POST', "/2010-11-01/distribution/{$this->distribution_id}/invalidation", $xml))) {
+                return false;
             }
-            return false;
+
+            if (!preg_match('#<Id>(.*?)</Id>#m', $resp, $matches)) {
+                error_log($xml);
+                error_log($resp);
+                return false;
+            }
+
+            return true;
         }
     }
 
