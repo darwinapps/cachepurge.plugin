@@ -71,7 +71,7 @@ namespace CachePurge {
                     $resp .= fread($fp, 65536);
                 }
                 fclose($fp);
-                if (!preg_match('/HTTP/1.1 20[01]/', $resp)) {
+                if (!preg_match('#^HTTP/1.1 20[01]#', $resp)) {
                     error_log($xml);
                     error_log($resp);
                     return false;
