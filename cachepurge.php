@@ -177,7 +177,7 @@ namespace CachePurge {
 
         public function callApi($url, $body)
         {
-            if (!$this->url) {
+            if (!$this->url || false == parse_url($this->url)) {
                 error_log("Nginx API is not configured properly");
                 return false;
             }
@@ -243,7 +243,10 @@ namespace CachePurge {
 
         public function purgeEverything()
         {
-            return $this->getApi()->invalidate(['/*']);
+            $urls = trailingslashit(get_site_url()) . '*';
+            $urls = apply_filters('cachepurge_urls', $urls);
+
+            return $this->getApi()->invalidate($urls);
         }
 
         public function purgeRelevant($postId)
@@ -289,7 +292,7 @@ namespace CachePurge {
                     $term_link = get_term_link($term);
                     if (!is_wp_error($term_link)) {
                         array_push($listofurls, $term_link);
-                        array_push($listofurls, $term_link . '/page/*');
+                        array_push($listofurls, $term_link . 'page/*');
                     }
                 }
             }
@@ -298,7 +301,7 @@ namespace CachePurge {
             array_push(
                 $listofurls,
                 get_author_posts_url(get_post_field('post_author', $postId)),
-                get_author_posts_url(get_post_field('post_author', $postId)) . '/page/*',
+                get_author_posts_url(get_post_field('post_author', $postId)) . 'page/*',
                 get_author_feed_link(get_post_field('post_author', $postId))
             );
 
@@ -350,6 +353,7 @@ namespace CachePurge {
             add_action('admin_bar_menu', [$this, 'admin_bar_item'], 100);
             add_action('admin_notices', [$this, 'cleared_cache_notice']);
 
+            add_action('network_admin_menu', [$this, 'menu_item']);
             add_action('admin_menu', [$this, 'menu_item']); // fires first, before admin_init
             add_action('admin_init', [$this, 'setup_settings']);
 
@@ -366,8 +370,11 @@ namespace CachePurge {
 
         public function cache_control_send_headers()
         {
+            $current_blog_id = get_current_blog_id();
+            switch_to_blog(BLOG_ID_CURRENT_SITE);
             if ($max_age = get_option(Plugin::MAX_AGE_OPTION))
                 header('Cache-Control: public; max-age: ' . $max_age);
+            switch_to_blog($current_blog_id);
         }
 
         public function admin_bar_item($wp_admin_bar)
@@ -378,7 +385,7 @@ namespace CachePurge {
 
             $wp_admin_bar->add_node([
                 'id' => 'cachepurge',
-                'title' => 'Clear Cache',
+                'title' => 'Clear Cache ' . trailingslashit(get_home_url()) . '*',
                 'href' => wp_nonce_url(admin_url('admin-ajax.php?action=cachepurge_clear_cache_full&source=adminbar'), 'cachepurge-clear-cache-full', 'cachepurge_nonce'),
                 'meta' => ['title' => 'Clear CloudFront Cache'],
                 'parent' => 'top-secondary'
@@ -387,9 +394,9 @@ namespace CachePurge {
 
         public function menu_item()
         {
-            add_options_page(
+            add_menu_page(
                 'CachePurge Settings',
-                'CachePurge Settings',
+                'Cache Purge',
                 'manage_options',
                 Plugin::SETTINGS_PAGE,
                 [$this, 'settings_page']
@@ -429,27 +436,51 @@ namespace CachePurge {
                 Plugin::SETTINGS_PAGE
             );
 
-            add_settings_field(
-                Plugin::MAX_AGE_OPTION,
-                'Max Age',
-                function () {
-                    $max_age = get_option(Plugin::MAX_AGE_OPTION);
-                    if (!$max_age)
-                        $max_age = 31536000;
-                    echo '<input name="' . Plugin::MAX_AGE_OPTION . '" value="' . (int)$max_age . '">';
-                    echo '<p>Set this option to zero to disable sending Cache-Control header</p>';
-                },
-                Plugin::SETTINGS_PAGE,
-                Plugin::SETTINGS_SECTION
-            );
+            if (!is_multisite() || get_current_blog_id() === BLOG_ID_CURRENT_SITE) {
+                add_settings_field(
+                    Plugin::MAX_AGE_OPTION,
+                    'Max Age',
+                    function () {
+                        $max_age = get_option(Plugin::MAX_AGE_OPTION);
+                        if (!$max_age)
+                            $max_age = 31536000;
+                        echo '<input name="' . Plugin::MAX_AGE_OPTION . '" value="' . (int)$max_age . '">';
+                        echo '<p>Set this option to zero to disable sending Cache-Control header</p>';
+                    },
+                    Plugin::SETTINGS_PAGE,
+                    Plugin::SETTINGS_SECTION
+                );
 
-            register_setting(Plugin::SETTINGS_PAGE, Plugin::MAX_AGE_OPTION, 'intval');
+                register_setting(Plugin::SETTINGS_PAGE, Plugin::MAX_AGE_OPTION, 'intval');
+            }
         }
 
+        public function override_javascript($field) {
+            $result = '<input name="' . $field . '" type="hidden" value="' . get_option($field) . '">';
+            $result .= '<input id="override-checkbox" type="checkbox" checked="' . get_option($field) . '">';
+            $result .= '<script type="text/javascript">';
+
+            $result .= <<<JS
+            function setState(disabled) {
+                jQuery("[name={$field}]").val(disabled ? "0" : "1");
+                jQuery("input:not([type]), input[type='text'], input[type='password']").prop("disabled", disabled);
+            }
+            jQuery("#override-checkbox").on("click", function () {
+                setState(!jQuery("#override-checkbox").is(":checked"));
+            });
+            if (jQuery("#override-checkbox").length)
+                setState(!jQuery("#override-checkbox").is(":checked"));
+
+JS;
+
+            $result .= '</script>';
+            return $result;
+        }
 
         public function settings_page()
         {
-            echo '<form action="options.php" method="POST">';
+            echo '<form action="' . get_site_url(null, '/wp-admin/options.php') . '" method="POST">';
+            echo '<input type="hidden" name="override-settings">';
             settings_fields(Plugin::SETTINGS_PAGE);
             do_settings_sections(Plugin::SETTINGS_PAGE);
             submit_button();
@@ -457,12 +488,17 @@ namespace CachePurge {
         }
     }
 
+    /**
+     * Class CloudFrontPlugin
+     * @package CachePurge
+     */
     class CloudFrontPlugin extends Plugin
     {
 
         const ACCESS_KEY_OPTION = 'cachepurge-cloudfront-access-key';
         const SECRET_KEY_OPTION = 'cachepurge-cloudfront-secret-key';
         const DISTRIBUTION_ID_OPTION = 'cachepurge-cloudfront-distribution-id';
+        const OVERRIDE_OPTION = 'cachepurge-cloudfront-override';
 
         public function getApi()
         {
@@ -471,10 +507,16 @@ namespace CachePurge {
             if ($api)
                 return $api;
 
+            $current_blog_id = get_current_blog_id();
+            if (!get_option(NginxPlugin::OVERRIDE_OPTION))
+                switch_to_blog(BLOG_ID_CURRENT_SITE);
+
             $api = new CloudFrontAPI();
             $api->setAccessKey(get_option(CloudFrontPlugin::ACCESS_KEY_OPTION));
             $api->setSecretKey(get_option(CloudFrontPlugin::SECRET_KEY_OPTION));
             $api->setDistributionId(get_option(CloudFrontPlugin::DISTRIBUTION_ID_OPTION));
+
+            switch_to_blog($current_blog_id);
 
             return $api;
         }
@@ -513,10 +555,22 @@ namespace CachePurge {
                 Plugin::SETTINGS_SECTION
             );
 
-
             register_setting(Plugin::SETTINGS_PAGE, CloudFrontPlugin::ACCESS_KEY_OPTION, 'wp_filter_nohtml_kses');
             register_setting(Plugin::SETTINGS_PAGE, CloudFrontPlugin::SECRET_KEY_OPTION, 'wp_filter_nohtml_kses');
             register_setting(Plugin::SETTINGS_PAGE, CloudFrontPlugin::DISTRIBUTION_ID_OPTION, 'wp_filter_nohtml_kses');
+
+            if (get_current_blog_id() !== BLOG_ID_CURRENT_SITE) {
+                add_settings_field(
+                    CloudFrontPlugin::OVERRIDE_OPTION,
+                    'Override global settings',
+                    function () {
+                        echo $this->override_javascript(CloudFrontPlugin::OVERRIDE_OPTION);
+                    },
+                    Plugin::SETTINGS_PAGE,
+                    Plugin::SETTINGS_SECTION
+                );
+                register_setting(Plugin::SETTINGS_PAGE, CloudFrontPlugin::OVERRIDE_OPTION, 'wp_filter_nohtml_kses');
+            }
         }
     }
 
@@ -525,6 +579,7 @@ namespace CachePurge {
         const URL_OPTION = 'cachepurge-nginx-url';
         const USERNAME_OPTION = 'cachepurge-nginx-username';
         const PASSWORD_OPTION = 'cachepurge-nginx-password';
+        const OVERRIDE_OPTION = 'cachepurge-nginx-override';
 
         public function getApi()
         {
@@ -533,10 +588,16 @@ namespace CachePurge {
             if ($api)
                 return $api;
 
+            $current_blog_id = get_current_blog_id();
+            if (!get_option(NginxPlugin::OVERRIDE_OPTION))
+                switch_to_blog(BLOG_ID_CURRENT_SITE);
+
             $api = new NginxApi();
             $api->setUrl(get_option(NginxPlugin::URL_OPTION));
             $api->setUsername(get_option(NginxPlugin::USERNAME_OPTION));
             $api->setPassword(get_option(NginxPlugin::PASSWORD_OPTION));
+
+            switch_to_blog($current_blog_id);
 
             return $api;
         }
@@ -549,7 +610,7 @@ namespace CachePurge {
                 NginxPlugin::URL_OPTION,
                 'URL',
                 function () {
-                    echo '<input name="' . NginxPlugin::URL_OPTION . '" value="' . get_option(NginxPlugin::URL_OPTION) . '">';
+                    echo '<input name="' . NginxPlugin::URL_OPTION . '" value="' . get_option(NginxPlugin::URL_OPTION) . '" size="100">';
                 },
                 Plugin::SETTINGS_PAGE,
                 Plugin::SETTINGS_SECTION
@@ -578,6 +639,19 @@ namespace CachePurge {
             register_setting(Plugin::SETTINGS_PAGE, NginxPlugin::URL_OPTION, 'wp_filter_nohtml_kses');
             register_setting(Plugin::SETTINGS_PAGE, NginxPlugin::USERNAME_OPTION, 'wp_filter_nohtml_kses');
             register_setting(Plugin::SETTINGS_PAGE, NginxPlugin::PASSWORD_OPTION, 'wp_filter_nohtml_kses');
+
+            if (get_current_blog_id() !== BLOG_ID_CURRENT_SITE) {
+                add_settings_field(
+                    NginxPlugin::OVERRIDE_OPTION,
+                    'Override global settings',
+                    function () {
+                        echo $this->override_javascript(NginxPlugin::OVERRIDE_OPTION);
+                    },
+                    Plugin::SETTINGS_PAGE,
+                    Plugin::SETTINGS_SECTION
+                );
+                register_setting(Plugin::SETTINGS_PAGE, NginxPlugin::OVERRIDE_OPTION, 'wp_filter_nohtml_kses');
+            }
         }
     }
 }
@@ -592,13 +666,13 @@ namespace {
     // not needed for CloudFlare, they rely on full urls,
     // depends on NGINX selective cache purge setup
     add_filter('cachepurge_urls', function ($urls) {
-        $urls = str_replace("http://" . $_SERVER['HTTP_HOST'], "", $urls);
-        $urls = str_replace("https://" . $_SERVER['HTTP_HOST'], "", $urls);
+        $urls = str_replace('http://' . $_SERVER['HTTP_HOST'] . '/', "/", $urls);
+        $urls = str_replace('https://' . $_SERVER['HTTP_HOST'] . '/', "/", $urls);
         return $urls;
     }, 10, 1);
 
     // Initiliaze Hooks class which contains WordPress hook functions
-    $hooks = new CachePurge\CloudFrontPlugin();
+    $hooks = new CachePurge\NginxPlugin();
     $hooks->init();
 }
 
