@@ -15,16 +15,86 @@ namespace CachePurge {
      * Interface ApiInterface
      * @package CachePurge
      */
-    interface ApiInterface
+    abstract class Api
     {
-        public function invalidate(array $urls);
+        const ERROR = 'error';
+        const DEBUG = 'debug';
+
+        private $_events = array();
+
+        /**
+         * @param string $event
+         * @return void
+         */
+        public function emit($event)
+        {
+            $args = func_get_args();
+            if (isset($this->_events[$event])) {
+                foreach ($this->_events[$event] as $callback) {
+                    call_user_func_array($callback, $args);
+                }
+            }
+            if (isset($this->_events['*'])) {
+                foreach ($this->_events['*'] as $callback) {
+                    call_user_func_array($callback, $args);
+                }
+            }
+        }
+
+        /**
+         * @param string $event event name
+         * @param callable $callback function to call
+         */
+        public function on($event = null, $callback)
+        {
+            if (!is_callable($callback))
+                throw new \Exception("Callback $callback is not callable");
+
+            if (!$event)
+                $event = '*';
+
+            if (!isset($this->_events[$event]))
+                $this->_events[$event] = array();
+
+            $this->_events[$event][] = $callback;
+        }
+
+        public function off($event = null, $callback = null)
+        {
+            $callbackName = null;
+            if ($callback && !is_callable($callback)) {
+                throw new \Exception("Callback $callback is not callable");
+            } elseif ($callback) {
+                is_callable($callback, true, $callbackName);
+            }
+
+            $events = $event
+                ? array($event)
+                : array_keys($this->_events);
+
+            foreach ($events as $event) {
+                if (!empty($this->_events[$event])) {
+                    if ($callback) {
+                        foreach ($this->_events[$event] as $i => $handler) {
+                            if ($handler === $callback) {
+                                unset($this->_events[$event][$i]);
+                            }
+                        }
+                    } else {
+                        unset($this->_events[$event]);
+                    }
+                }
+            }
+        }
+
+        abstract public function invalidate(array $urls);
     }
 
     /**
      * Class CloudFront
      * @package CachePurge
      */
-    class CloudFrontAPI implements ApiInterface
+    class CloudFrontAPI extends Api
     {
         protected $access_key;
         protected $secret_key;
@@ -49,7 +119,7 @@ namespace CachePurge {
         public function callApi($method, $url, $xml = '')
         {
             if (!$this->access_key || !$this->secret_key || !$this->distribution_id) {
-                error_log("CloudFront API is not configured properly");
+                $this->emit(Api::ERROR, "CloudFront API is not configured properly");
                 return false;
             }
 
@@ -63,7 +133,7 @@ namespace CachePurge {
             $msg .= "Authorization: AWS {$this->access_key}:{$sig}\r\n";
             $msg .= "Content-Length: {$len}\r\n\r\n";
             $msg .= $xml;
-            $fp = fsockopen('ssl://cloudfront.amazonaws.com', 443, $errno, $errstr, $this->timeout);
+            $fp = @fsockopen('ssl://cloudfront.amazonaws.com', 443, $errno, $errstr, $this->timeout);
             if ($fp) {
                 fwrite($fp, $msg);
                 $resp = '';
@@ -71,14 +141,18 @@ namespace CachePurge {
                     $resp .= fread($fp, 65536);
                 }
                 fclose($fp);
-                if (!preg_match('#^HTTP/1.1 20[01]#', $resp)) {
-                    error_log($msg);
-                    error_log($resp);
+                if (!preg_match('#^HTTP/1.1 20[01]#', $resp) || !preg_match('#<Id>(.*?)</Id>#m', $resp, $matches)) {
+                    $this->emit(Api::ERROR, "Failed to create invalidation");
+                    $this->emit(Api::ERROR, "Request: $msg");
+                    $this->emit(Api::ERROR, "Response: $resp");
                     return false;
+                } else {
+                    $this->emit(Api::DEBUG, "Request: $msg");
+                    $this->emit(Api::DEBUG, "Response: $resp");
                 }
                 return $resp;
             }
-            error_log("Connection to CloudFront API failed: {$errno} {$errstr}");
+            $this->emit(Api::ERROR, "Connection to CloudFront API failed: {$errno} {$errstr}");
             return false;
         }
 
@@ -104,12 +178,6 @@ namespace CachePurge {
             $xml = "<InvalidationBatch>{$paths}<CallerReference>{$this->distribution_id}{$epoch}</CallerReference></InvalidationBatch>";
 
             if (false === ($resp = $this->callApi('POST', "/2010-11-01/distribution/{$this->distribution_id}/invalidation", $xml))) {
-                return false;
-            }
-
-            if (!preg_match('#<Id>(.*?)</Id>#m', $resp, $matches)) {
-                error_log($xml);
-                error_log($resp);
                 return false;
             }
 
@@ -153,7 +221,7 @@ namespace CachePurge {
      * Class CloudFront
      * @package CachePurge
      */
-    class NginxAPI implements ApiInterface
+    class NginxAPI extends Api
     {
         protected $url;
         protected $username;
@@ -178,7 +246,7 @@ namespace CachePurge {
         public function callApi($url, $body)
         {
             if (!$this->url || false == parse_url($this->url)) {
-                error_log("Nginx API is not configured properly");
+                $this->emit(Api::ERROR, "Nginx API is not configured properly");
                 return false;
             }
 
@@ -192,8 +260,8 @@ namespace CachePurge {
             $msg .= $body;
 
             $fp = strtolower(parse_url($url, PHP_URL_SCHEME)) == 'https'
-                ? pfsockopen('ssl://' . $host, 443, $errno, $errstr, $this->timeout)
-                : pfsockopen($host, 80, $errno, $errstr, $this->timeout);
+                ? @fsockopen('ssl://' . $host, 443, $errno, $errstr, $this->timeout)
+                : @fsockopen($host, 80, $errno, $errstr, $this->timeout);
 
             if ($fp) {
                 fwrite($fp, $msg);
@@ -201,10 +269,19 @@ namespace CachePurge {
                 while (!feof($fp)) {
                     $resp .= fread($fp, 131072);
                 }
+                if (!preg_match('#^HTTP/1.1 20[01]#', $resp)) {
+                    $this->emit(Api::ERROR, "Failed to invalidate");
+                    $this->emit(Api::ERROR, "Request: $msg");
+                    $this->emit(Api::ERROR, "Response: $resp");
+                    return false;
+                } else {
+                    $this->emit(Api::DEBUG, "Request: $msg");
+                    $this->emit(Api::DEBUG, "Response: $resp");
+                }
                 fclose($fp);
                 return $resp;
             }
-            error_log("Connection to {$this->url}{$url}: {$errno} {$errstr}");
+            $this->emit(API::ERROR, "Connection to {$url} failed: {$errno} {$errstr}");
             return false;
         }
 
@@ -236,10 +313,33 @@ namespace CachePurge {
             'delete_attachment'
         ];
 
+        protected $failed = false;
+
         /**
-         * @return ApiInterface
+         * @return Api
          */
-        abstract function getApi();
+        abstract protected function _getApi();
+
+        public function onApiEvent($event, $message)
+        {
+            if ($event == Api::ERROR)
+                $this->failed = true;
+            error_log(
+                sprintf("[%s] [%s]\n%s\n", date('Y-m-d H:i:sO'), strtoupper($event), $message),
+                3,
+                WP_CONTENT_DIR . '/cachepurge.log'
+            );
+        }
+
+        /**
+         * @return Api
+         */
+        public function getApi()
+        {
+            $api = $this->_getApi();
+            $api->on('*', [$this, 'onApiEvent']);
+            return $api;
+        }
 
         public function purgeEverything()
         {
@@ -351,11 +451,13 @@ namespace CachePurge {
 
             // add admin bar button 'Clear Cloudfront Cache'
             add_action('admin_bar_menu', [$this, 'admin_bar_item'], 100);
-            add_action('admin_notices', [$this, 'cleared_cache_notice']);
+            //add_action('admin_notices', [$this, 'cleared_cache_notice']);
 
             add_action('network_admin_menu', [$this, 'menu_item']);
             add_action('admin_menu', [$this, 'menu_item']); // fires first, before admin_init
             add_action('admin_init', [$this, 'setup_settings']);
+            add_action('admin_notices', [$this, 'cleared_cache_notice']);
+            add_action('save_post', array($this, 'save_post'));
 
             // ajax action to clear cache
             add_action('wp_ajax_cachepurge_clear_cache_full', [$this, 'action_clear_cache_full']);
@@ -410,6 +512,17 @@ namespace CachePurge {
             header("Location: " . add_query_arg('cachepurge-cache-cleared', $result, $_SERVER['HTTP_REFERER']));
         }
 
+        public function save_post()
+        {
+            add_filter('redirect_post_location', array($this, 'add_notice_query_var'), 99);
+        }
+
+        public function add_notice_query_var($location)
+        {
+            remove_filter('redirect_post_location', array($this, 'add_notice_query_var'), 99);
+            return add_query_arg(array('cachepurge-cache-cleared' => (int)!$this->failed), $location);
+        }
+
         public function cleared_cache_notice()
         {
             if (!empty($_GET['cachepurge-cache-cleared']) && $_GET['cachepurge-cache-cleared'] == 1) :
@@ -455,7 +568,8 @@ namespace CachePurge {
             }
         }
 
-        public function override_javascript($field) {
+        public function override_javascript($field)
+        {
             $result = '<input name="' . $field . '" type="hidden" value="' . get_option($field) . '">';
             $result .= '<input id="override-checkbox" type="checkbox" checked="' . get_option($field) . '">';
             $result .= '<script type="text/javascript">';
@@ -500,7 +614,7 @@ JS;
         const DISTRIBUTION_ID_OPTION = 'cachepurge-cloudfront-distribution-id';
         const OVERRIDE_OPTION = 'cachepurge-cloudfront-override';
 
-        public function getApi()
+        protected function _getApi()
         {
             static $api;
 
@@ -581,7 +695,7 @@ JS;
         const PASSWORD_OPTION = 'cachepurge-nginx-password';
         const OVERRIDE_OPTION = 'cachepurge-nginx-override';
 
-        public function getApi()
+        protected function _getApi()
         {
             static $api;
 
