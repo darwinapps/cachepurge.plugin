@@ -320,6 +320,8 @@ namespace CachePurge {
          */
         abstract protected function _getApi();
 
+        abstract protected function isConfigured();
+
         public function onApiEvent($event, $message)
         {
             if ($event == Api::ERROR)
@@ -449,24 +451,25 @@ namespace CachePurge {
             // set Cache-Control headers
             add_action('template_redirect', [$this, 'cache_control_send_headers']);
 
-            // add admin bar button 'Clear Cloudfront Cache'
+            // add admin bar button 'Clear Cache'
             add_action('admin_bar_menu', [$this, 'admin_bar_item'], 100);
-            //add_action('admin_notices', [$this, 'cleared_cache_notice']);
 
             add_action('network_admin_menu', [$this, 'menu_item']);
             add_action('admin_menu', [$this, 'menu_item']); // fires first, before admin_init
             add_action('admin_init', [$this, 'setup_settings']);
             add_action('admin_notices', [$this, 'cleared_cache_notice']);
-            add_action('save_post', array($this, 'save_post'));
 
             // ajax action to clear cache
             add_action('wp_ajax_cachepurge_clear_cache_full', [$this, 'action_clear_cache_full']);
 
             // Load Automatic Cache Purge
-            add_action('switch_theme', [$this, 'purgeEverything']);
-            add_action('customize_save_after', [$this, 'purgeEverything']);
-            foreach ($this->purgeActions as $action) {
-                add_action($action, [$this, 'purgeRelevant'], 10, 2);
+            // add_action('switch_theme', [$this, 'purgeEverything']);
+            // add_action('customize_save_after', [$this, 'purgeEverything']);
+            if ($this->isConfigured()) {
+                foreach ($this->purgeActions as $action) {
+                    add_action($action, [$this, 'purgeRelevant'], 10, 2);
+                }
+                add_action('save_post', array($this, 'save_post'));
             }
         }
 
@@ -489,7 +492,7 @@ namespace CachePurge {
                 'id' => 'cachepurge',
                 'title' => 'Clear Cache ' . trailingslashit(get_home_url()) . '*',
                 'href' => wp_nonce_url(admin_url('admin-ajax.php?action=cachepurge_clear_cache_full&source=adminbar'), 'cachepurge-clear-cache-full', 'cachepurge_nonce'),
-                'meta' => ['title' => 'Clear CloudFront Cache'],
+                'meta' => ['title' => 'Clear Cache'],
                 'parent' => 'top-secondary'
             ]);
         }
@@ -614,6 +617,20 @@ JS;
         const DISTRIBUTION_ID_OPTION = 'cachepurge-cloudfront-distribution-id';
         const OVERRIDE_OPTION = 'cachepurge-cloudfront-override';
 
+        protected function isConfigured()
+        {
+            $current_blog_id = get_current_blog_id();
+            if (!get_option(NginxPlugin::OVERRIDE_OPTION))
+                switch_to_blog(BLOG_ID_CURRENT_SITE);
+
+            $configured = get_option(CloudFrontPlugin::ACCESS_KEY_OPTION)
+                && get_option(CloudFrontPlugin::SECRET_KEY_OPTION)
+                && get_option(CloudFrontPlugin::DISTRIBUTION_ID_OPTION);
+
+            switch_to_blog($current_blog_id);
+            return $configured;
+        }
+
         protected function _getApi()
         {
             static $api;
@@ -694,6 +711,21 @@ JS;
         const USERNAME_OPTION = 'cachepurge-nginx-username';
         const PASSWORD_OPTION = 'cachepurge-nginx-password';
         const OVERRIDE_OPTION = 'cachepurge-nginx-override';
+
+        protected function isConfigured()
+        {
+            $current_blog_id = get_current_blog_id();
+            if (!get_option(NginxPlugin::OVERRIDE_OPTION))
+                switch_to_blog(BLOG_ID_CURRENT_SITE);
+
+            $url = @parse_url(get_option(NginxPlugin::URL_OPTION));
+            switch_to_blog($current_blog_id);
+
+            return $url
+                ? isset($url['scheme']) && isset($url['host']) && isset($url['path'])
+                : false;
+
+        }
 
         protected function _getApi()
         {
@@ -780,9 +812,9 @@ namespace {
     // not needed for CloudFlare, they rely on full urls,
     // depends on NGINX selective cache purge setup
     add_filter('cachepurge_urls', function ($urls) {
-        $urls = str_replace('http://' . $_SERVER['HTTP_HOST'] . '/', "/", $urls);
-        $urls = str_replace('https://' . $_SERVER['HTTP_HOST'] . '/', "/", $urls);
-        return $urls;
+        $urls = str_replace('http://' . $_SERVER['HTTP_HOST'] . '/', '/', $urls);
+        $urls = str_replace('https://' . $_SERVER['HTTP_HOST'] . '/', '/', $urls);
+        return array_unique($urls);
     }, 10, 1);
 
     // Initiliaze Hooks class which contains WordPress hook functions
