@@ -167,9 +167,11 @@ abstract class Plugin
         // ajax action to clear cache
         add_action('wp_ajax_cachepurge_clear_cache_full', [$this, 'action_clear_cache_full']);
 
-        // Load Automatic Cache Purge
-        // add_action('switch_theme', [$this, 'purgeEverything']);
-        // add_action('customize_save_after', [$this, 'purgeEverything']);
+        // clear cache on theme switch
+        add_action('switch_theme', [$this, 'purgeEverything']);
+
+        // clear cache on theme customize
+        add_action('customize_save_after', [$this, 'purgeEverything']);
         if ($this->isConfigured()) {
             foreach ($this->purgeActions as $action) {
                 add_action($action, [$this, 'purgeRelevant'], 10, 2);
@@ -193,15 +195,13 @@ abstract class Plugin
             return;
         }
 
-        /*
         $wp_admin_bar->add_node([
             'id' => 'cachepurge',
-            'title' => 'Clear Cache ' . trailingslashit(get_home_url()) . '*',
+            'title' => 'Reset Cache',
             'href' => wp_nonce_url(admin_url('admin-ajax.php?action=cachepurge_clear_cache_full&source=adminbar'), 'cachepurge-clear-cache-full', 'cachepurge_nonce'),
-            'meta' => ['title' => 'Clear Cache'],
+            'meta' => ['title' => 'Reset Cache'],
             'parent' => 'top-secondary'
         ]);
-        */
     }
 
     public function menu_item()
