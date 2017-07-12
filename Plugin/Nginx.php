@@ -22,7 +22,7 @@ class Nginx extends Plugin
         $enabled = get_option(Plugin::ENABLED_OPTION);
         $url = @parse_url(get_option(Nginx::URL_OPTION));
 
-        restore_current_blog();
+        $this->restore_current_blog();
 
         if (!$enabled)
             return false;
@@ -48,7 +48,7 @@ class Nginx extends Plugin
         $api->setUsername(get_option(Nginx::USERNAME_OPTION));
         $api->setPassword(get_option(Nginx::PASSWORD_OPTION));
 
-        restore_current_blog();
+        $this->restore_current_blog();
 
         return $api;
     }

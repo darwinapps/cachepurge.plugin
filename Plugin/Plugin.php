@@ -24,6 +24,7 @@ abstract class Plugin
     ];
 
     protected $failed = false;
+    protected $switched = false;
 
     /**
      * @return Api
@@ -34,11 +35,19 @@ abstract class Plugin
 
     public function switch_to_main_blog()
     {
+        $current_blog_id = get_current_blog_id();
         $main_blog_id = is_multisite()
             ? get_network()->site_id
-            : get_current_blog_id();
-        if ($main_blog_id != get_current_blog_id())
-            switch_to_blog($main_blog_id);
+            : $current_blog_id;
+        if ($main_blog_id != $current_blog_id)
+            $this->switched = switch_to_blog($main_blog_id);
+    }
+
+    public function restore_current_blog() {
+        if ($this->switched) {
+            restore_current_blog();
+            $this->switched = false;
+        }
     }
 
     public function onApiEvent($event, $message)
@@ -205,7 +214,7 @@ abstract class Plugin
         if ($max_age = get_option(Plugin::MAX_AGE_OPTION))
             header('Cache-Control: public; max-age: ' . $max_age);
 
-        restore_current_blog();
+        $this->restore_current_blog();
     }
 
     public function admin_bar_item($wp_admin_bar)

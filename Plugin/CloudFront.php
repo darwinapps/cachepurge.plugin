@@ -24,7 +24,7 @@ class CloudFront extends Plugin
             && get_option(CloudFront::SECRET_KEY_OPTION)
             && get_option(CloudFront::DISTRIBUTION_ID_OPTION);
 
-        restore_current_blog();
+        $this->restore_current_blog();
 
         return $enabled && $configured;
     }
@@ -44,7 +44,7 @@ class CloudFront extends Plugin
         $api->setSecretKey(get_option(CloudFront::SECRET_KEY_OPTION));
         $api->setDistributionId(get_option(CloudFront::DISTRIBUTION_ID_OPTION));
 
-        restore_current_blog();
+        $this->restore_current_blog();
 
         return $api;
     }

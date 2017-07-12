@@ -27,7 +27,7 @@ class CloudFlare extends Plugin
         $configured = get_option(CloudFlare::EMAIL_OPTION)
             && get_option(CloudFlare::KEY_OPTION);
 
-        restore_current_blog();
+        $this->restore_current_blog();
 
         return $enabled && $configured;
     }
@@ -50,7 +50,7 @@ class CloudFlare extends Plugin
         $api->setKey(get_option(CloudFlare::KEY_OPTION));
         $api->setZoneId(get_option(CloudFlare::ZONE_ID_OPTION));
 
-        restore_current_blog();
+        $this->restore_current_blog();
 
         return $api;
     }
