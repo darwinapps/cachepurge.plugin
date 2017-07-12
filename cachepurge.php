@@ -303,6 +303,7 @@ namespace CachePurge {
      */
     abstract class Plugin
     {
+        const ENABLED_OPTION = 'cachepurge-enabled';
         const MAX_AGE_OPTION = 'cachepurge-max-age';
         const SETTINGS_PAGE = 'cachepurge-settings-page';
         const SETTINGS_SECTION = 'cachepurge-settings';
@@ -552,6 +553,17 @@ namespace CachePurge {
                 Plugin::SETTINGS_PAGE
             );
 
+            add_settings_field(
+                Plugin::ENABLED_OPTION,
+                'Enabled',
+                function () {
+                    echo $this->enabled_checkbox_javascript(Plugin::ENABLED_OPTION);
+                },
+                Plugin::SETTINGS_PAGE,
+                Plugin::SETTINGS_SECTION
+            );
+            register_setting(Plugin::SETTINGS_PAGE, Plugin::ENABLED_OPTION, 'intval');
+
             if (!is_multisite() || get_current_blog_id() === BLOG_ID_CURRENT_SITE) {
                 add_settings_field(
                     Plugin::MAX_AGE_OPTION,
@@ -571,22 +583,62 @@ namespace CachePurge {
             }
         }
 
-        public function override_javascript($field)
+        public function enabled_checkbox_javascript($field)
         {
             $result = '<input name="' . $field . '" type="hidden" value="' . get_option($field) . '">';
-            $result .= '<input id="override-checkbox" type="checkbox" checked="' . get_option($field) . '">';
+            $result .= '<input id="enabled-checkbox" type="checkbox" ' . (get_option($field) ? 'checked' : '') . '>';
             $result .= '<script type="text/javascript">';
 
             $result .= <<<JS
-            function setState(disabled) {
-                jQuery("[name={$field}]").val(disabled ? "0" : "1");
-                jQuery("input:not([type]), input[type='text'], input[type='password']").prop("disabled", disabled);
-            }
-            jQuery("#override-checkbox").on("click", function () {
-                setState(!jQuery("#override-checkbox").is(":checked"));
-            });
-            if (jQuery("#override-checkbox").length)
-                setState(!jQuery("#override-checkbox").is(":checked"));
+            (function ($) {
+                function setState(enabled) {
+                    $("[name={$field}]").val(enabled ? "1" : "0");
+                    $("input").each(function (i, el) {
+                        if (!$(el).parents('tr').find("[name={$field}]").length) {
+                            console.log(el);
+                            if (enabled) {
+                                $(el).parents('tr').show();
+                            } else {
+                                $(el).parents('tr').hide();
+                            }
+                        }
+                    });
+                }
+                $("#enabled-checkbox").on("click", function () {
+                    setState($("#enabled-checkbox").is(":checked"));
+                });
+                $(document).ready(function () {
+                    if ($("#enabled-checkbox").length)
+                        setState($("#enabled-checkbox").is(":checked"));
+                });
+            })(jQuery);
+
+JS;
+
+            $result .= '</script>';
+            return $result;
+        }
+
+        public function override_checkbox_javascript($field)
+        {
+            $result = '<input name="' . $field . '" type="hidden" value="' . get_option($field) . '">';
+            $result .= '<input id="override-checkbox" type="checkbox" ' . (get_option($field) ? 'checked' : '') . '>';
+            $result .= '<script type="text/javascript">';
+
+            $result .= <<<JS
+            (function ($) {
+                function setState(disabled) {
+                    $("[name={$field}]").val(disabled ? "0" : "1");
+                    $("input:not([type]), input[type='text'], input[type='password']").prop("disabled", disabled);
+                }
+                $("#override-checkbox").on("click", function () {
+                    setState(!$("#override-checkbox").is(":checked"));
+                });
+                $(document).ready(function () {
+                    if ($("#override-checkbox").length)
+                        setState(!$("#override-checkbox").is(":checked"));
+                });
+            })(jQuery);
 
 JS;
 
@@ -619,16 +671,22 @@ JS;
 
         protected function isConfigured()
         {
+            if (!get_option(Plugin::ENABLED_OPTION))
+                return false;
+
             $current_blog_id = get_current_blog_id();
+
             if (!get_option(NginxPlugin::OVERRIDE_OPTION))
                 switch_to_blog(BLOG_ID_CURRENT_SITE);
 
+            $enabled = get_option(Plugin::ENABLED_OPTION);
             $configured = get_option(CloudFrontPlugin::ACCESS_KEY_OPTION)
                 && get_option(CloudFrontPlugin::SECRET_KEY_OPTION)
                 && get_option(CloudFrontPlugin::DISTRIBUTION_ID_OPTION);
 
             switch_to_blog($current_blog_id);
-            return $configured;
+
+            return $enabled && $configured;
         }
 
         protected function _getApi()
@@ -695,12 +753,12 @@ JS;
                     CloudFrontPlugin::OVERRIDE_OPTION,
                     'Override global settings',
                     function () {
-                        echo $this->override_javascript(CloudFrontPlugin::OVERRIDE_OPTION);
+                        echo $this->override_checkbox_javascript(CloudFrontPlugin::OVERRIDE_OPTION);
                     },
                     Plugin::SETTINGS_PAGE,
                     Plugin::SETTINGS_SECTION
                 );
-                register_setting(Plugin::SETTINGS_PAGE, CloudFrontPlugin::OVERRIDE_OPTION, 'wp_filter_nohtml_kses');
+                register_setting(Plugin::SETTINGS_PAGE, CloudFrontPlugin::OVERRIDE_OPTION, 'intval');
             }
         }
     }
@@ -714,12 +772,20 @@ JS;
 
         protected function isConfigured()
         {
+            if (!get_option(Plugin::ENABLED_OPTION))
+                return false;
+
             $current_blog_id = get_current_blog_id();
             if (!get_option(NginxPlugin::OVERRIDE_OPTION))
                 switch_to_blog(BLOG_ID_CURRENT_SITE);
 
+            $enabled = get_option(Plugin::ENABLED_OPTION);
             $url = @parse_url(get_option(NginxPlugin::URL_OPTION));
+
             switch_to_blog($current_blog_id);
+
+            if (!$enabled)
+                return false;
 
             return $url
                 ? isset($url['scheme']) && isset($url['host']) && isset($url['path'])
@@ -791,12 +857,12 @@ JS;
                     NginxPlugin::OVERRIDE_OPTION,
                     'Override global settings',
                     function () {
-                        echo $this->override_javascript(NginxPlugin::OVERRIDE_OPTION);
+                        echo $this->override_checkbox_javascript(NginxPlugin::OVERRIDE_OPTION);
                     },
                     Plugin::SETTINGS_PAGE,
                     Plugin::SETTINGS_SECTION
                 );
-                register_setting(Plugin::SETTINGS_PAGE, NginxPlugin::OVERRIDE_OPTION, 'wp_filter_nohtml_kses');
+                register_setting(Plugin::SETTINGS_PAGE, NginxPlugin::OVERRIDE_OPTION, 'intval');
             }
         }
     }
