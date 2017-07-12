@@ -24,7 +24,7 @@ class CloudFlare extends Plugin
         $current_blog_id = get_current_blog_id();
 
         if (!get_option(CloudFlare::OVERRIDE_OPTION))
-            switch_to_blog(BLOG_ID_CURRENT_SITE);
+            switch_to_blog(get_network()->site_id);
 
         $enabled = get_option(Plugin::ENABLED_OPTION);
         $configured = get_option(CloudFlare::EMAIL_OPTION)
@@ -47,7 +47,7 @@ class CloudFlare extends Plugin
 
         $current_blog_id = get_current_blog_id();
         if (!get_option(CloudFlare::OVERRIDE_OPTION))
-            switch_to_blog(BLOG_ID_CURRENT_SITE);
+            switch_to_blog(get_network()->site_id);
 
         $api = new Api();
         $api->setEmail(get_option(CloudFlare::EMAIL_OPTION));
@@ -102,7 +102,7 @@ class CloudFlare extends Plugin
         register_setting(Plugin::SETTINGS_PAGE, CloudFlare::KEY_OPTION, 'wp_filter_nohtml_kses');
         register_setting(Plugin::SETTINGS_PAGE, CloudFlare::ZONE_ID_OPTION, 'wp_filter_nohtml_kses');
 
-        if (get_current_blog_id() !== BLOG_ID_CURRENT_SITE) {
+        if (get_current_blog_id() !== get_network()->site_id) {
             add_settings_field(
                 CloudFlare::OVERRIDE_OPTION,
                 'Override global settings',

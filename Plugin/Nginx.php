@@ -17,7 +17,7 @@ class Nginx extends Plugin
 
         $current_blog_id = get_current_blog_id();
         if (!get_option(Nginx::OVERRIDE_OPTION))
-            switch_to_blog(BLOG_ID_CURRENT_SITE);
+            switch_to_blog(get_network()->site_id);
 
         $enabled = get_option(Plugin::ENABLED_OPTION);
         $url = @parse_url(get_option(Nginx::URL_OPTION));
@@ -42,7 +42,7 @@ class Nginx extends Plugin
 
         $current_blog_id = get_current_blog_id();
         if (!get_option(Nginx::OVERRIDE_OPTION))
-            switch_to_blog(BLOG_ID_CURRENT_SITE);
+            switch_to_blog(get_network()->site_id);
 
         $api = new Api();
         $api->setUrl(get_option(Nginx::URL_OPTION));
@@ -92,7 +92,7 @@ class Nginx extends Plugin
         register_setting(Plugin::SETTINGS_PAGE, Nginx::USERNAME_OPTION, 'wp_filter_nohtml_kses');
         register_setting(Plugin::SETTINGS_PAGE, Nginx::PASSWORD_OPTION, 'wp_filter_nohtml_kses');
 
-        if (get_current_blog_id() !== BLOG_ID_CURRENT_SITE) {
+        if (get_current_blog_id() !== get_network()->site_id) {
             add_settings_field(
                 Nginx::OVERRIDE_OPTION,
                 'Override global settings',

@@ -183,7 +183,7 @@ abstract class Plugin
     public function cache_control_send_headers()
     {
         $current_blog_id = get_current_blog_id();
-        switch_to_blog(BLOG_ID_CURRENT_SITE);
+        switch_to_blog(get_network()->site_id);
         if ($max_age = get_option(Plugin::MAX_AGE_OPTION))
             header('Cache-Control: public; max-age: ' . $max_age);
         switch_to_blog($current_blog_id);
@@ -270,7 +270,7 @@ abstract class Plugin
         );
         register_setting(Plugin::SETTINGS_PAGE, Plugin::ENABLED_OPTION, 'intval');
 
-        if (!is_multisite() || get_current_blog_id() === BLOG_ID_CURRENT_SITE) {
+        if (!is_multisite() || get_current_blog_id() === get_network()->site_id) {
             add_settings_field(
                 Plugin::MAX_AGE_OPTION,
                 'Max Age',
