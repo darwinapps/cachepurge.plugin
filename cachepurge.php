@@ -5,7 +5,7 @@
  * Plugin Author: Aleksandr Guidrevitch
  * Version: 0.0.2
  * Author: DarwinApps, Aleksandr Guidrevitch
- * Author URI: http://darwinapps.com/
+ * Author URI: http://drwn.co/
  * Description: Selective cache purge on publish
  */
 
