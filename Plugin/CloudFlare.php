@@ -14,23 +14,20 @@ class CloudFlare extends Plugin
     const EMAIL_OPTION = 'cachepurge-cloudflare-email';
     const KEY_OPTION = 'cachepurge-cloudflare-key';
     const ZONE_ID_OPTION = 'cachepurge-cloudflare-zone-id';
-    const OVERRIDE_OPTION = 'cachepurge-cloudflare-override';
 
     protected function isConfigured()
     {
         if (!get_option(Plugin::ENABLED_OPTION))
             return false;
 
-        $current_blog_id = get_current_blog_id();
-
-        if (!get_option(CloudFlare::OVERRIDE_OPTION))
-            switch_to_blog(get_network()->site_id);
+        if (!get_option(Plugin::OVERRIDE_OPTION))
+            $this->switch_to_main_blog();
 
         $enabled = get_option(Plugin::ENABLED_OPTION);
         $configured = get_option(CloudFlare::EMAIL_OPTION)
             && get_option(CloudFlare::KEY_OPTION);
 
-        switch_to_blog($current_blog_id);
+        restore_current_blog();
 
         return $enabled && $configured;
     }
@@ -45,16 +42,15 @@ class CloudFlare extends Plugin
         if ($api)
             return $api;
 
-        $current_blog_id = get_current_blog_id();
-        if (!get_option(CloudFlare::OVERRIDE_OPTION))
-            switch_to_blog(get_network()->site_id);
+        if (!get_option(Plugin::OVERRIDE_OPTION))
+            $this->switch_to_main_blog();
 
         $api = new Api();
         $api->setEmail(get_option(CloudFlare::EMAIL_OPTION));
         $api->setKey(get_option(CloudFlare::KEY_OPTION));
         $api->setZoneId(get_option(CloudFlare::ZONE_ID_OPTION));
 
-        switch_to_blog($current_blog_id);
+        restore_current_blog();
 
         return $api;
     }
@@ -102,17 +98,6 @@ class CloudFlare extends Plugin
         register_setting(Plugin::SETTINGS_PAGE, CloudFlare::KEY_OPTION, 'wp_filter_nohtml_kses');
         register_setting(Plugin::SETTINGS_PAGE, CloudFlare::ZONE_ID_OPTION, 'wp_filter_nohtml_kses');
 
-        if (get_current_blog_id() !== get_network()->site_id) {
-            add_settings_field(
-                CloudFlare::OVERRIDE_OPTION,
-                'Override global settings',
-                function () {
-                    echo $this->override_checkbox_javascript(CloudFlare::OVERRIDE_OPTION);
-                },
-                Plugin::SETTINGS_PAGE,
-                Plugin::SETTINGS_SECTION
-            );
-            register_setting(Plugin::SETTINGS_PAGE, CloudFlare::OVERRIDE_OPTION, 'intval');
-        }
+        $this->setup_override_settings();
     }
 }

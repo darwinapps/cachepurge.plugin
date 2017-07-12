@@ -10,24 +10,21 @@ class CloudFront extends Plugin
     const ACCESS_KEY_OPTION = 'cachepurge-cloudfront-access-key';
     const SECRET_KEY_OPTION = 'cachepurge-cloudfront-secret-key';
     const DISTRIBUTION_ID_OPTION = 'cachepurge-cloudfront-distribution-id';
-    const OVERRIDE_OPTION = 'cachepurge-cloudfront-override';
 
     protected function isConfigured()
     {
         if (!get_option(Plugin::ENABLED_OPTION))
             return false;
 
-        $current_blog_id = get_current_blog_id();
-
-        if (!get_option(CloudFront::OVERRIDE_OPTION))
-            switch_to_blog(get_network()->site_id);
+        if (!get_option(Plugin::OVERRIDE_OPTION))
+            $this->switch_to_main_blog();
 
         $enabled = get_option(Plugin::ENABLED_OPTION);
         $configured = get_option(CloudFront::ACCESS_KEY_OPTION)
             && get_option(CloudFront::SECRET_KEY_OPTION)
             && get_option(CloudFront::DISTRIBUTION_ID_OPTION);
 
-        switch_to_blog($current_blog_id);
+        restore_current_blog();
 
         return $enabled && $configured;
     }
@@ -39,16 +36,15 @@ class CloudFront extends Plugin
         if ($api)
             return $api;
 
-        $current_blog_id = get_current_blog_id();
-        if (!get_option(CloudFront::OVERRIDE_OPTION))
-            switch_to_blog(get_network()->site_id);
+        if (!get_option(Plugin::OVERRIDE_OPTION))
+            $this->switch_to_main_blog();
 
         $api = new Api();
         $api->setAccessKey(get_option(CloudFront::ACCESS_KEY_OPTION));
         $api->setSecretKey(get_option(CloudFront::SECRET_KEY_OPTION));
         $api->setDistributionId(get_option(CloudFront::DISTRIBUTION_ID_OPTION));
 
-        switch_to_blog($current_blog_id);
+        restore_current_blog();
 
         return $api;
     }
@@ -91,17 +87,6 @@ class CloudFront extends Plugin
         register_setting(Plugin::SETTINGS_PAGE, CloudFront::SECRET_KEY_OPTION, 'wp_filter_nohtml_kses');
         register_setting(Plugin::SETTINGS_PAGE, CloudFront::DISTRIBUTION_ID_OPTION, 'wp_filter_nohtml_kses');
 
-        if (get_current_blog_id() !== get_network()->site_id) {
-            add_settings_field(
-                CloudFront::OVERRIDE_OPTION,
-                'Override global settings',
-                function () {
-                    echo $this->override_checkbox_javascript(CloudFront::OVERRIDE_OPTION);
-                },
-                Plugin::SETTINGS_PAGE,
-                Plugin::SETTINGS_SECTION
-            );
-            register_setting(Plugin::SETTINGS_PAGE, CloudFront::OVERRIDE_OPTION, 'intval');
-        }
+        $this->setup_override_settings();
     }
 }

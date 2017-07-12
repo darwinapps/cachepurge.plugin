@@ -12,6 +12,8 @@ abstract class Plugin
 {
     const ENABLED_OPTION = 'cachepurge-enabled';
     const MAX_AGE_OPTION = 'cachepurge-max-age';
+    const OVERRIDE_OPTION = 'cachepurge-override';
+
     const SETTINGS_PAGE = 'cachepurge-settings-page';
     const SETTINGS_SECTION = 'cachepurge-settings';
 
@@ -29,6 +31,15 @@ abstract class Plugin
     abstract protected function _getApi();
 
     abstract protected function isConfigured();
+
+    public function switch_to_main_blog()
+    {
+        $main_blog_id = is_multisite()
+            ? get_network()->site_id
+            : get_current_blog_id();
+        if ($main_blog_id != get_current_blog_id())
+            switch_to_blog($main_blog_id);
+    }
 
     public function onApiEvent($event, $message)
     {
@@ -182,11 +193,19 @@ abstract class Plugin
 
     public function cache_control_send_headers()
     {
-        $current_blog_id = get_current_blog_id();
-        switch_to_blog(get_network()->site_id);
+        if (!get_option(Plugin::ENABLED_OPTION))
+            return;
+
+        if (!get_option(Plugin::OVERRIDE_OPTION))
+            $this->switch_to_main_blog();
+
+        if (!get_option(Plugin::ENABLED_OPTION))
+            return;
+
         if ($max_age = get_option(Plugin::MAX_AGE_OPTION))
             header('Cache-Control: public; max-age: ' . $max_age);
-        switch_to_blog($current_blog_id);
+
+        restore_current_blog();
     }
 
     public function admin_bar_item($wp_admin_bar)
@@ -268,24 +287,38 @@ abstract class Plugin
             Plugin::SETTINGS_PAGE,
             Plugin::SETTINGS_SECTION
         );
-        register_setting(Plugin::SETTINGS_PAGE, Plugin::ENABLED_OPTION, 'intval');
 
-        if (!is_multisite() || get_current_blog_id() === get_network()->site_id) {
+        add_settings_field(
+            Plugin::MAX_AGE_OPTION,
+            'Max Age',
+            function () {
+                $max_age = get_option(Plugin::MAX_AGE_OPTION);
+                if (!$max_age)
+                    $max_age = 31536000;
+                echo '<input name="' . Plugin::MAX_AGE_OPTION . '" value="' . (int)$max_age . '">';
+                echo '<p>Set this option to zero to disable sending Cache-Control header</p>';
+            },
+            Plugin::SETTINGS_PAGE,
+            Plugin::SETTINGS_SECTION
+        );
+
+        register_setting(Plugin::SETTINGS_PAGE, Plugin::ENABLED_OPTION, 'intval');
+        register_setting(Plugin::SETTINGS_PAGE, Plugin::MAX_AGE_OPTION, 'intval');
+    }
+
+    public function setup_override_settings()
+    {
+        if (!is_main_site()) {
             add_settings_field(
-                Plugin::MAX_AGE_OPTION,
-                'Max Age',
+                Plugin::OVERRIDE_OPTION,
+                'Override global settings',
                 function () {
-                    $max_age = get_option(Plugin::MAX_AGE_OPTION);
-                    if (!$max_age)
-                        $max_age = 31536000;
-                    echo '<input name="' . Plugin::MAX_AGE_OPTION . '" value="' . (int)$max_age . '">';
-                    echo '<p>Set this option to zero to disable sending Cache-Control header</p>';
+                    echo $this->override_checkbox_javascript(CloudFlare::OVERRIDE_OPTION);
                 },
                 Plugin::SETTINGS_PAGE,
                 Plugin::SETTINGS_SECTION
             );
-
-            register_setting(Plugin::SETTINGS_PAGE, Plugin::MAX_AGE_OPTION, 'intval');
+            register_setting(Plugin::SETTINGS_PAGE, CloudFlare::OVERRIDE_OPTION, 'intval');
         }
     }
 

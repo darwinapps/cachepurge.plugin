@@ -1,6 +1,7 @@
 <?php
 
 namespace CachePurge\Plugin;
+
 use CachePurge\Api\Nginx as Api;
 
 class Nginx extends Plugin
@@ -15,14 +16,13 @@ class Nginx extends Plugin
         if (!get_option(Plugin::ENABLED_OPTION))
             return false;
 
-        $current_blog_id = get_current_blog_id();
-        if (!get_option(Nginx::OVERRIDE_OPTION))
-            switch_to_blog(get_network()->site_id);
+        if (!get_option(Plugin::OVERRIDE_OPTION))
+            $this->switch_to_main_blog();
 
         $enabled = get_option(Plugin::ENABLED_OPTION);
         $url = @parse_url(get_option(Nginx::URL_OPTION));
 
-        switch_to_blog($current_blog_id);
+        restore_current_blog();
 
         if (!$enabled)
             return false;
@@ -40,16 +40,15 @@ class Nginx extends Plugin
         if ($api)
             return $api;
 
-        $current_blog_id = get_current_blog_id();
-        if (!get_option(Nginx::OVERRIDE_OPTION))
-            switch_to_blog(get_network()->site_id);
+        if (!get_option(Plugin::OVERRIDE_OPTION))
+            $this->switch_to_main_blog();
 
         $api = new Api();
         $api->setUrl(get_option(Nginx::URL_OPTION));
         $api->setUsername(get_option(Nginx::USERNAME_OPTION));
         $api->setPassword(get_option(Nginx::PASSWORD_OPTION));
 
-        switch_to_blog($current_blog_id);
+        restore_current_blog();
 
         return $api;
     }
@@ -92,17 +91,6 @@ class Nginx extends Plugin
         register_setting(Plugin::SETTINGS_PAGE, Nginx::USERNAME_OPTION, 'wp_filter_nohtml_kses');
         register_setting(Plugin::SETTINGS_PAGE, Nginx::PASSWORD_OPTION, 'wp_filter_nohtml_kses');
 
-        if (get_current_blog_id() !== get_network()->site_id) {
-            add_settings_field(
-                Nginx::OVERRIDE_OPTION,
-                'Override global settings',
-                function () {
-                    echo $this->override_checkbox_javascript(Nginx::OVERRIDE_OPTION);
-                },
-                Plugin::SETTINGS_PAGE,
-                Plugin::SETTINGS_SECTION
-            );
-            register_setting(Plugin::SETTINGS_PAGE, Nginx::OVERRIDE_OPTION, 'intval');
-        }
+        $this->setup_override_settings();
     }
 }
