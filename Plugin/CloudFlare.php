@@ -1,10 +1,11 @@
 <?php
 
 namespace CachePurge\Plugin;
+
 use CachePurge\Api\CloudFlare as Api;
 
 /**
- * Class CloudFlarePlugin
+ * Class CloudFlare
  * @package CachePurge\Plugin
  */
 class CloudFlare extends Plugin
@@ -22,18 +23,21 @@ class CloudFlare extends Plugin
 
         $current_blog_id = get_current_blog_id();
 
-        if (!get_option(CloudFlarePlugin::OVERRIDE_OPTION))
+        if (!get_option(CloudFlare::OVERRIDE_OPTION))
             switch_to_blog(BLOG_ID_CURRENT_SITE);
 
         $enabled = get_option(Plugin::ENABLED_OPTION);
-        $configured = get_option(CloudFlarePlugin::EMAIL_OPTION)
-            && get_option(CloudFlarePlugin::KEY_OPTION);
+        $configured = get_option(CloudFlare::EMAIL_OPTION)
+            && get_option(CloudFlare::KEY_OPTION);
 
         switch_to_blog($current_blog_id);
 
         return $enabled && $configured;
     }
 
+    /**
+     * @return Api
+     */
     protected function _getApi()
     {
         static $api;
@@ -53,6 +57,11 @@ class CloudFlare extends Plugin
         switch_to_blog($current_blog_id);
 
         return $api;
+    }
+
+    public function purgeEverything()
+    {
+        return $this->getApi()->invalidateEverything();
     }
 
     public function setup_settings()
