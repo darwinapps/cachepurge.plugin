@@ -35,7 +35,7 @@ class CloudFlare extends Api
             return false;
         }
 
-        $msg = "POST /client/v4/zones/{$this->zone_id}/purge_cache HTTP/1.0\r\n";
+        $msg = "DELETE /client/v4/zones/{$this->zone_id}/purge_cache HTTP/1.0\r\n";
         $msg .= "Host: api.cloudflare.com\r\n";
         $msg .= "Content-Length: " . strlen($body) . "\r\n";
         $msg .= "X-Auth-Email:" . $this->email . "\r\n";
