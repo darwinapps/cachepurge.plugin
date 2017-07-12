@@ -47,17 +47,17 @@ class Nginx extends Api
 
     public function setUrl($value)
     {
-        $this->url = $value;
+        $this->url = trim($value);
     }
 
     public function setUsername($value)
     {
-        $this->username = $value;
+        $this->username = trim($value);
     }
 
     public function setPassword($value)
     {
-        $this->password = $value;
+        $this->password = trim($value);
     }
 
     public function callApi($url, $body)

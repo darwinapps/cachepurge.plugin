@@ -15,17 +15,17 @@ class CloudFront extends Api
 
     public function setAccessKey($value)
     {
-        $this->access_key = $value;
+        $this->access_key = trim($value);
     }
 
     public function setSecretKey($value)
     {
-        $this->secret_key = $value;
+        $this->secret_key = trim($value);
     }
 
     public function setDistributionId($value)
     {
-        $this->distribution_id = $value;
+        $this->distribution_id = trim($value);
     }
 
     public function callApi($xml = '')

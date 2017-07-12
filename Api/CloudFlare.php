@@ -15,17 +15,17 @@ class CloudFlare extends Api
 
     public function setEmail($value)
     {
-        $this->email = $value;
+        $this->email = trim($value);
     }
 
     public function setKey($value)
     {
-        $this->key = $value;
+        $this->key = trim($value);
     }
 
     public function setZoneId($value)
     {
-        $this->zone_id = $value;
+        $this->zone_id = trim($value);
     }
 
     public function callApi($body)
@@ -40,6 +40,7 @@ class CloudFlare extends Api
         $msg .= "Content-Length: " . strlen($body) . "\r\n";
         $msg .= "X-Auth-Email:" . $this->email . "\r\n";
         $msg .= "X-Auth-Key:" . $this->key . "\r\n";
+        $msg .= "Content-Type: application/json\r\n";
         $msg .= "\r\n";
         $msg .= $body;
 
