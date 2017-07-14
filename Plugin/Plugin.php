@@ -17,13 +17,7 @@ abstract class Plugin
     const SETTINGS_PAGE = 'cachepurge-settings-page';
     const SETTINGS_SECTION = 'cachepurge-settings';
 
-    protected $purgeActions = [
-        'deleted_post',
-        'edit_post',
-        'delete_attachment'
-    ];
-
-    protected $failed = false;
+    protected $failed;
     protected $switched = false;
 
     /**
@@ -32,6 +26,33 @@ abstract class Plugin
     abstract protected function _getApi();
 
     abstract protected function isConfigured();
+
+    public function init()
+    {
+        // set Cache-Control headers
+        add_action('template_redirect', [$this, 'cache_control_send_headers']);
+
+        // add admin bar button 'Clear Cache'
+        add_action('admin_bar_menu', [$this, 'admin_bar_item'], 100);
+
+        add_action('network_admin_menu', [$this, 'menu_item']);
+        add_action('admin_menu', [$this, 'menu_item']); // fires first, before admin_init
+        add_action('admin_init', [$this, 'setup_settings']);
+        add_action('admin_notices', [$this, 'cleared_cache_notice']);
+
+        // ajax action to clear cache
+        add_action('wp_ajax_cachepurge_clear_cache_full', [$this, 'action_clear_cache_full']);
+
+        // clear cache on theme switch
+        add_action('switch_theme', [$this, 'purgeEverything']);
+
+        // clear cache on theme customize
+        add_action('customize_save_after', [$this, 'purgeEverything']);
+        if ($this->isConfigured()) {
+            add_action('transition_post_status', [$this, 'onPostStatusChange'], 10, 3);
+            add_action('save_post', array($this, 'save_post'));
+        }
+    }
 
     public function switch_to_main_blog()
     {
@@ -76,28 +97,25 @@ abstract class Plugin
         return $this->getApi()->invalidate($urls);
     }
 
-    public function purgeRelevant($postId)
-    {
-        $validPostStatus = ['publish', 'trash'];
-        $thisPostStatus = get_post_status($postId);
-
-        if (get_permalink($postId) != true || !in_array($thisPostStatus, $validPostStatus)) {
+    public function onPostStatusChange($new_status, $old_status, $post) {
+        error_log(" $old_status => $new_status " . $post->ID . "\n", 3, WP_CONTENT_DIR.'/cachepurge.log');
+        if (is_a($post, 'WP_Post') == false) {
             return null;
         }
 
-        if (is_int(wp_is_post_autosave($postId)) || is_int(wp_is_post_revision($postId))) {
+        if (get_permalink($post->ID) != true) {
             return null;
         }
 
-        $saved_post = get_post($postId);
-        if (is_a($saved_post, 'WP_Post') == false) {
+        if (is_int(wp_is_post_autosave($post->ID)) || is_int(wp_is_post_revision($post->ID))) {
             return null;
         }
 
-        $urls = $this->getPostRelatedLinks($postId);
-        $urls = apply_filters('cachepurge_urls', $urls);
-
-        return $this->getApi()->invalidate($urls);
+        if (($old_status == 'publish' && $new_status != 'publish') || ($old_status != 'publish' && $new_status == 'publish')) {
+            $urls = $this->getPostRelatedLinks($post->ID);
+            $urls = apply_filters('cachepurge_urls', $urls);
+            return $this->getApi()->invalidate($urls);
+        }
     }
 
     public function getPostRelatedLinks($postId)
@@ -171,35 +189,6 @@ abstract class Plugin
         return $listofurls;
     }
 
-    public function init()
-    {
-        // set Cache-Control headers
-        add_action('template_redirect', [$this, 'cache_control_send_headers']);
-
-        // add admin bar button 'Clear Cache'
-        add_action('admin_bar_menu', [$this, 'admin_bar_item'], 100);
-
-        add_action('network_admin_menu', [$this, 'menu_item']);
-        add_action('admin_menu', [$this, 'menu_item']); // fires first, before admin_init
-        add_action('admin_init', [$this, 'setup_settings']);
-        add_action('admin_notices', [$this, 'cleared_cache_notice']);
-
-        // ajax action to clear cache
-        add_action('wp_ajax_cachepurge_clear_cache_full', [$this, 'action_clear_cache_full']);
-
-        // clear cache on theme switch
-        add_action('switch_theme', [$this, 'purgeEverything']);
-
-        // clear cache on theme customize
-        add_action('customize_save_after', [$this, 'purgeEverything']);
-        if ($this->isConfigured()) {
-            foreach ($this->purgeActions as $action) {
-                add_action($action, [$this, 'purgeRelevant'], 10, 2);
-            }
-            add_action('save_post', array($this, 'save_post'));
-        }
-    }
-
     public function cache_control_send_headers()
     {
         if (!get_option(Plugin::ENABLED_OPTION))
@@ -258,7 +247,11 @@ abstract class Plugin
     public function add_notice_query_var($location)
     {
         remove_filter('redirect_post_location', array($this, 'add_notice_query_var'), 99);
-        return add_query_arg(array('cachepurge-cache-cleared' => (int)!$this->failed), $location);
+        if (!is_null($this->failed)) {
+            return add_query_arg(array('cachepurge-cache-cleared' => (int)!$this->failed), $location);
+        } else {
+            return $location;
+        }
     }
 
     public function cleared_cache_notice()
