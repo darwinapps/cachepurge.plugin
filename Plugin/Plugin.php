@@ -111,7 +111,7 @@ abstract class Plugin
             return null;
         }
 
-        if (($old_status == 'publish' && $new_status != 'publish') || ($old_status != 'publish' && $new_status == 'publish')) {
+        if (($old_status == 'publish' && $new_status != 'publish') || $new_status == 'publish') {
             $urls = $this->getPostRelatedLinks($post->ID);
             $urls = apply_filters('cachepurge_urls', $urls);
             return $this->getApi()->invalidate($urls);
