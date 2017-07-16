@@ -95,7 +95,6 @@ abstract class Plugin
         $urls = apply_filters('cachepurge_urls', $urls);
 
         $this->failed = !$this->getApi()->invalidate($urls);
-
         return !$this->failed;
     }
 
@@ -116,6 +115,7 @@ abstract class Plugin
         if (($old_status == 'publish' && $new_status != 'publish') || $new_status == 'publish') {
             $urls = $this->getPostRelatedLinks($post->ID);
             $urls = apply_filters('cachepurge_urls', $urls);
+
             $this->failed = !$this->getApi()->invalidate($urls);
             return !$this->failed;
         }
