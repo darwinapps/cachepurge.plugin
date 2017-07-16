@@ -94,7 +94,9 @@ abstract class Plugin
         $urls = trailingslashit(get_site_url()) . '*';
         $urls = apply_filters('cachepurge_urls', $urls);
 
-        return $this->getApi()->invalidate($urls);
+        $this->failed = !$this->getApi()->invalidate($urls);
+
+        return !$this->failed;
     }
 
     public function onPostStatusChange($new_status, $old_status, $post) {
@@ -114,7 +116,8 @@ abstract class Plugin
         if (($old_status == 'publish' && $new_status != 'publish') || $new_status == 'publish') {
             $urls = $this->getPostRelatedLinks($post->ID);
             $urls = apply_filters('cachepurge_urls', $urls);
-            return $this->getApi()->invalidate($urls);
+            $this->failed = !$this->getApi()->invalidate($urls);
+            return !$this->failed;
         }
     }
 
