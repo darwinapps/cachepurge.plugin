@@ -91,7 +91,7 @@ abstract class Plugin
 
     public function purgeEverything()
     {
-        $urls = trailingslashit(get_site_url()) . '*';
+        $urls = array(trailingslashit(get_site_url()) . '*');
         $urls = apply_filters('cachepurge_urls', $urls);
 
         $this->failed = !$this->getApi()->invalidate($urls);
