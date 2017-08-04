@@ -99,7 +99,11 @@ abstract class Plugin
     }
 
     public function onPostStatusChange($new_status, $old_status, $post) {
-        error_log(" $old_status => $new_status " . $post->ID . "\n", 3, WP_CONTENT_DIR.'/cachepurge.log');
+        //error_log(" $old_status => $new_status " . $post->ID . "\n", 3, WP_CONTENT_DIR.'/cachepurge.log');
+        if (!apply_filters('cachepurge_invalidate_allowed', 1)) {
+            return null;
+        }
+
         if (is_a($post, 'WP_Post') == false) {
             return null;
         }
@@ -113,6 +117,7 @@ abstract class Plugin
         }
 
         if (($old_status == 'publish' && $new_status != 'publish') || $new_status == 'publish') {
+
             $urls = $this->getPostRelatedLinks($post->ID);
             $urls = apply_filters('cachepurge_urls', $urls);
 
