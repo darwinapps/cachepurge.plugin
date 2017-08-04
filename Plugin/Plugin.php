@@ -145,7 +145,7 @@ abstract class Plugin
                 $term_link = get_term_link($term);
                 if (!is_wp_error($term_link)) {
                     array_push($listofurls, $term_link);
-                    array_push($listofurls, $term_link . 'page/*');
+                    array_push($listofurls, trailingslashit($term_link) . 'page/*');
                 }
             }
         }
@@ -154,7 +154,7 @@ abstract class Plugin
         array_push(
             $listofurls,
             get_author_posts_url(get_post_field('post_author', $postId)),
-            get_author_posts_url(get_post_field('post_author', $postId)) . 'page/*',
+            trailingslashit(get_author_posts_url(get_post_field('post_author', $postId))) . 'page/*',
             get_author_feed_link(get_post_field('post_author', $postId))
         );
 
@@ -174,7 +174,7 @@ abstract class Plugin
         if (get_post_status($postId) == 'trash') {
             $trashpost = get_permalink($postId);
             $trashpost = str_replace('__trashed', '', $trashpost);
-            array_push($listofurls, $trashpost, $trashpost . 'feed/');
+            array_push($listofurls, $trashpost, trailingslashit($trashpost) . 'feed/');
         }
 
         // Feeds
