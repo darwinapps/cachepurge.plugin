@@ -244,7 +244,7 @@ abstract class Plugin
     {
         check_ajax_referer('cachepurge-clear-cache-full', 'cachepurge_nonce');
         $result = $this->purgeEverything();
-        header("Location: " . add_query_arg('cachepurge-cache-cleared', $result, $_SERVER['HTTP_REFERER']));
+        header("Location: " . add_query_arg('cachepurge-cache-cleared', (bool) $result, $_SERVER['HTTP_REFERER']));
     }
 
     public function save_post()
