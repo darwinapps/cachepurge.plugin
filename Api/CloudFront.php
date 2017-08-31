@@ -45,6 +45,13 @@ class CloudFront extends Api
         $msg .= "Authorization: AWS {$this->access_key}:{$sig}\r\n";
         $msg .= "Content-Length: {$len}\r\n\r\n";
         $msg .= $xml;
+
+        if (!defined('CACHEPURGE_DRYRUN') || CACHEPURGE_DRYRUN) {
+            $this->emit(Api::DEBUG, "!!! Dry run mode, no actual request to API is made");
+            $this->emit(Api::DEBUG, "Request: $msg");
+            return 'DEBUG';
+        }
+
         $fp = @fsockopen('ssl://cloudfront.amazonaws.com', 443, $errno, $errstr, $this->timeout);
         if ($fp) {
             fwrite($fp, $msg);

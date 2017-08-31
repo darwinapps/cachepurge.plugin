@@ -48,6 +48,8 @@ abstract class Plugin
 
         // clear cache on theme customize
         add_action('customize_save_after', [$this, 'purgeEverything']);
+        add_action('cachepurge_post_related_links', [$this, 'getPostRelatedLinks'], 9, 2);
+
         if ($this->isConfigured()) {
             add_action('transition_post_status', [$this, 'onPostStatusChange'], 10, 3);
             add_action('save_post', array($this, 'save_post'));
@@ -64,7 +66,8 @@ abstract class Plugin
             $this->switched = switch_to_blog($main_blog_id);
     }
 
-    public function restore_current_blog() {
+    public function restore_current_blog()
+    {
         if ($this->switched) {
             restore_current_blog();
             $this->switched = false;
@@ -98,8 +101,9 @@ abstract class Plugin
         return !$this->failed;
     }
 
-    public function onPostStatusChange($new_status, $old_status, $post) {
-        //error_log(" $old_status => $new_status " . $post->ID . "\n", 3, WP_CONTENT_DIR.'/cachepurge.log');
+    public function onPostStatusChange($new_status, $old_status, $post)
+    {
+        // error_log(" $old_status => $new_status " . $post->ID . "\n", 3, WP_CONTENT_DIR.'/cachepurge.log');
         if (!apply_filters('cachepurge_invalidate_allowed', 1)) {
             return null;
         }
@@ -117,8 +121,7 @@ abstract class Plugin
         }
 
         if (($old_status == 'publish' && $new_status != 'publish') || $new_status == 'publish') {
-
-            $urls = $this->getPostRelatedLinks($post->ID);
+            $urls = apply_filters('cachepurge_post_related_links', [], $post->ID);
             $urls = apply_filters('cachepurge_urls', $urls);
 
             $this->failed = !$this->getApi()->invalidate($urls);
@@ -126,9 +129,8 @@ abstract class Plugin
         }
     }
 
-    public function getPostRelatedLinks($postId)
+    public function getPostRelatedLinks($listofurls, $postId)
     {
-        $listofurls = [];
         $post_type = get_post_type($postId);
 
         //Purge taxonomies terms URLs
@@ -244,7 +246,7 @@ abstract class Plugin
     {
         check_ajax_referer('cachepurge-clear-cache-full', 'cachepurge_nonce');
         $result = $this->purgeEverything();
-        header("Location: " . add_query_arg('cachepurge-cache-cleared', (bool) $result, $_SERVER['HTTP_REFERER']));
+        header("Location: " . add_query_arg('cachepurge-cache-cleared', (bool)$result, $_SERVER['HTTP_REFERER']));
     }
 
     public function save_post()

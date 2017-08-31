@@ -44,6 +44,12 @@ class CloudFlare extends Api
         $msg .= "\r\n";
         $msg .= $body;
 
+        if (!defined('CACHEPURGE_DRYRUN') || CACHEPURGE_DRYRUN) {
+            $this->emit(Api::DEBUG, "!!! Dry run mode, no actual request to API is made");
+            $this->emit(Api::DEBUG, "Request: $msg");
+            return 'DEBUG';
+        }
+
         $fp = @fsockopen('ssl://api.cloudflare.com', 443, $errno, $errstr, $this->timeout);
 
         if ($fp) {

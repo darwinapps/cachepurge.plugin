@@ -76,6 +76,12 @@ class Nginx extends Api
         $msg .= "\r\n";
         $msg .= $body;
 
+        if (!defined('CACHEPURGE_DRYRUN') || CACHEPURGE_DRYRUN) {
+            $this->emit(Api::DEBUG, "!!! Dry run mode, no actual request to API is made");
+            $this->emit(Api::DEBUG, "Request: $msg");
+            return 'DEBUG';
+        }
+
         $fp = strtolower(parse_url($url, PHP_URL_SCHEME)) == 'https'
             ? @fsockopen('ssl://' . $host, 443, $errno, $errstr, $this->timeout)
             : @fsockopen($host, 80, $errno, $errstr, $this->timeout);
