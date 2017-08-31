@@ -48,7 +48,7 @@ abstract class Plugin
 
         // clear cache on theme customize
         add_action('customize_save_after', [$this, 'purgeEverything']);
-        add_action('cachepurge_post_related_links', [$this, 'getPostRelatedLinks'], 9, 2);
+        add_action('cachepurge_post_related_links', [$this, 'getPostRelatedLinks'], 10, 2);
 
         if ($this->isConfigured()) {
             add_action('transition_post_status', [$this, 'onPostStatusChange'], 10, 3);

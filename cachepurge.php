@@ -30,18 +30,85 @@ require(__DIR__ . '/Plugin/Nginx.php');
 add_filter('cachepurge_post_related_links', function ($urls, $postId) {
     $post_type = get_post_type($postId);
 
-    if ($post_type == 'press') {
-        $posts = get_posts( array(
-            'meta_key'   => '_wp_page_template',
-            'meta_value' => 'template-news-room.php',
+    $map = array(
+        'press' => array(
+            'template-news-room.php',
+            'template-about.php'
+        ),
+        'case-studies-banner' => array(
+            'template-case-studies-lp.php',
+            'template-case-studies-v2.php',
+            'template-case-studies-v3-filter.php',
+            'template-case-studies-v3.php',
+        ),
+        'case-studies-ov' => array(
+            'template-case-studies-lp.php',
+            'template-case-studies-v2.php',
+            'template-case-studies-v3-filter.php',
+            'template-case-studies-v3.php',
+        ),
+        'mw-video' => array(
+            'template-insights.php',
+            'template-resources.php',
+            'content-single-mw-video.php',
+            'video-page-template.php',
+        ),
+        'insights' => array(
+            'template-insights.php',
+            'insight-topic-content.php',
+            'template-blog-page-insights-backend.php',
+            'content-single-post.php', // as it includes template-inc/template-blog-page-random-resource-topic.php
+            'home.php', // as it includes template-inc/template-blog-page-random-resource-topic.php
+        ),
+        'mw-author' => array(
+            'template-login.php',
+            'template-login-5cols.php',
+            'template-upcoming-events.php'
+        ),
+        'tip-and-trick' => array(
+            'template-login.php',
+            'template-login-5cols.php',
+        ),
+        'event' => array(
+            'template-login-5cols.php',
+            'template-login.php',
+            'template-upcoming-events.php'
+        ),
+        'post' => array(
+            'template-login-5cols.php',
+            'template-login.php',
+            'template-resources.php',
+        ),
+        'careers-people' => array(
+            'template-new-careers.php',
+        ),
+        'layout' => array(
+            'template-products.php',
+            'template-product-v2.php'
+        ),
+        'product' => array(
+            'template-products.php',
+            'template-product-v2.php'
+        )
+    );
+
+    if ($map[$post_type]) {
+        $posts = new WP_Query(array(
+            'meta_query' => array(
+                array(
+                    'key' => '_wp_page_template',
+                    'value' => $map[$post_type],
+                    'compare' => 'IN'
+                )
+            ),
             'post_type' => 'page',
-            'posts_per_page' => 9999,
-        ) );
-        foreach ($posts as $post) {
+            'posts_per_page' => -1,
+        ));
+        foreach ($posts->posts as $post) {
             $urls[] = get_permalink($post);
         }
     }
-    return $urls;
+    return array_unique($urls);
 }, 10, 2);
 
 
